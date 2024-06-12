@@ -80,7 +80,7 @@ final class OrderAdminSearchIndexer extends AbstractAdminIndexer
                    order_customer_select.customer_number,
                    `order`.order_number,
                    `order`.amount_total,
-                   order_delivery.tracking_codes
+                   order_delivery_select.tracking_codes
             FROM `order`
                 LEFT JOIN (SELECT DISTINCT id,
                                            order_id,
@@ -112,8 +112,12 @@ final class OrderAdminSearchIndexer extends AbstractAdminIndexer
                     ON `order`.id = order_tag.order_id
                 LEFT JOIN tag
                     ON order_tag.tag_id = tag.id
-                LEFT JOIN order_delivery
-                    ON `order`.id = order_delivery.order_id
+                LEFT JOIN (SELECT DISTINCT id,
+                                           order_id,
+                                           tracking_codes
+                           FROM order_delivery
+                           WHERE order_delivery.order_id IN (:ids)) order_delivery_select
+                    ON `order`.id = order_delivery_select.order_id
                 LEFT JOIN (SELECT DISTINCT id,
                                            order_id,
                                            config
