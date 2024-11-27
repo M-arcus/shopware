@@ -14,8 +14,6 @@ use Shopware\Core\Checkout\Document\DocumentConfigurationFactory;
 use Shopware\Core\Checkout\Document\DocumentEntity;
 use Shopware\Core\Checkout\Document\DocumentException;
 use Shopware\Core\Checkout\Document\DocumentIdStruct;
-use Shopware\Core\Checkout\Document\Exception\DocumentGenerationException;
-use Shopware\Core\Checkout\Document\Exception\InvalidDocumentRendererException;
 use Shopware\Core\Checkout\Document\FileGenerator\FileTypes;
 use Shopware\Core\Checkout\Document\Renderer\DeliveryNoteRenderer;
 use Shopware\Core\Checkout\Document\Renderer\InvoiceRenderer;
@@ -34,6 +32,7 @@ use Shopware\Core\Framework\Context;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityRepository;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Criteria;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Filter\EqualsFilter;
+use Shopware\Core\Framework\Feature;
 use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\Framework\Util\Random;
 use Shopware\Core\Framework\Uuid\Uuid;
@@ -189,13 +188,17 @@ class DocumentGeneratorTest extends TestCase
         $operation1 = new DocumentGenerateOperation($this->orderId, FileTypes::PDF, $invoiceConfig1->jsonSerialize());
         $operation2 = new DocumentGenerateOperation($this->orderId, FileTypes::PDF, $invoiceConfig2->jsonSerialize());
 
-        $this->documentGenerator->generate(InvoiceRenderer::TYPE, [
+        $errors = $this->documentGenerator->generate(InvoiceRenderer::TYPE, [
             $this->orderId => $operation1,
-        ], $this->context);
+        ], $this->context)->getErrors();
 
-        $this->documentGenerator->generate(InvoiceRenderer::TYPE, [
+        static::assertEmpty($errors);
+
+        $errors = $this->documentGenerator->generate(InvoiceRenderer::TYPE, [
             $this->orderId => $operation2,
-        ], $this->context);
+        ], $this->context)->getErrors();
+
+        static::assertEmpty($errors);
 
         $stornoConfiguration = new DocumentConfiguration();
         $stornoConfiguration->assign([
@@ -215,10 +218,12 @@ class DocumentGeneratorTest extends TestCase
 
         $stornoStruct = $this->documentGenerator->preview(StornoRenderer::TYPE, $operation, (string) $order->getDeepLinkCode(), $this->context);
 
-        static::assertNotEmpty($stornoStruct->getContent());
-        static::assertStringContainsString('Cancellation 1000 for Invoice ' . $invoiceNumber, $stornoStruct->getHtml());
-        static::assertStringContainsString('Customer no. ' . $customerNo, $stornoStruct->getHtml());
+        if (!Feature::isActive('v6.7.0.0')) {
+            static::assertStringContainsString('Cancellation 1000 for Invoice ' . $invoiceNumber, $stornoStruct->getHtml());
+            static::assertStringContainsString('Customer no. ' . $customerNo, $stornoStruct->getHtml());
+        }
 
+        static::assertNotEmpty($stornoStruct->getContent());
         $this->getContainer()->get('order_customer.repository')->update([[
             'id' => $orderCustomer->getId(),
             'customerNumber' => 'CHANGED NUMBER',
@@ -226,16 +231,19 @@ class DocumentGeneratorTest extends TestCase
 
         $stornoStruct = $this->documentGenerator->preview(StornoRenderer::TYPE, $operation, (string) $order->getDeepLinkCode(), $this->context);
 
-        static::assertStringContainsString('Cancellation 1000 for Invoice ' . $invoiceNumber, $stornoStruct->getHtml());
-        // Customer no does not change because it refers to the older version of order
-        static::assertStringContainsString('Customer no. ' . $customerNo, $stornoStruct->getHtml());
+        static::assertNotEmpty($stornoStruct->getContent());
+        if (!Feature::isActive('v6.7.0.0')) {
+            static::assertStringContainsString('Cancellation 1000 for Invoice ' . $invoiceNumber, $stornoStruct->getHtml());
+            // Customer no does not change because it refers to the older version of order
+            static::assertStringContainsString('Customer no. ' . $customerNo, $stornoStruct->getHtml());
+        }
     }
 
     #[DataProvider('uploadDataProvider')]
     public function testUpload(bool $preGenerateDoc, Request $uploadFileRequest, bool $static = true, ?\Exception $expectedException = null): void
     {
         if ($expectedException instanceof \Exception) {
-            static::expectExceptionObject($expectedException);
+            $this->expectExceptionObject($expectedException);
         }
 
         if ($preGenerateDoc) {
@@ -302,21 +310,21 @@ class DocumentGeneratorTest extends TestCase
                 'extension' => FileTypes::PDF,
             ]),
             true,
-            new DocumentGenerationException('Parameter "fileName" is missing'),
+            DocumentException::generationError('Parameter "fileName" is missing'),
         ];
 
         yield 'upload non static document' => [
             true,
             new Request(),
             false,
-            new DocumentGenerationException('This document is dynamically generated and cannot be overwritten'),
+            DocumentException::generationError('This document is dynamically generated and cannot be overwritten'),
         ];
 
         yield 'upload with existed media' => [
             true,
             new Request(),
             true,
-            new DocumentGenerationException('Document already exists'),
+            DocumentException::generationError('Document already exists'),
         ];
     }
 
@@ -575,8 +583,8 @@ class DocumentGeneratorTest extends TestCase
 
     public function testGenerateWithInvalidType(): void
     {
-        static::expectException(InvalidDocumentRendererException::class);
-        static::expectExceptionMessage('Unable to find a document renderer with type "invalid_type"');
+        $this->expectException(DocumentException::class);
+        $this->expectExceptionMessage('Unable to find a document renderer with type "invalid_type"');
         $this->documentGenerator->generate('invalid_type', [], $this->context);
     }
 

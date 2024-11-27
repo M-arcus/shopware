@@ -1,5 +1,7 @@
 {
     "resolved": "files",
+    "themeId": "theme-id",
+    "technicalName": "technical-name",
     "domainUrl": "http:\/\/example.com",
     "basePath": ""
 }
