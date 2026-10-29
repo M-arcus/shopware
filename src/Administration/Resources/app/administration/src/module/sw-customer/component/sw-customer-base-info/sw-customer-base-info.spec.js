@@ -258,4 +258,36 @@ describe('module/sw-customer/page/sw-customer-base-info', () => {
         );
         expect(leftColumn.findAll('.sw-description-list')[4].find('dd').text()).not.toBe('-');
     });
+
+    it('should display the customer number as text in no edit mode', async () => {
+        await wrapper.setProps({
+            customer: {
+                ...wrapper.props().customer,
+                customerNumber: '123456789',
+            },
+        });
+
+        expect(wrapper.find('.sw-customer-base__label-customer-number').text()).toBe('123456789');
+        expect(wrapper.find('input[name="sw-field--customer-customerNumber"]').exists()).toBe(false);
+    });
+
+    it('should edit the customer number in edit mode', async () => {
+        const customer = {
+            ...wrapper.props().customer,
+            customerNumber: '123456789',
+        };
+        await wrapper.setProps({
+            customer,
+            customerEditMode: true,
+        });
+        await flushPromises();
+
+        const customerNumberField = wrapper.find('input[name="sw-field--customer-customerNumber"]');
+        expect(customerNumberField.element.value).toBe('123456789');
+
+        await customerNumberField.setValue('987654321');
+        await customerNumberField.trigger('change');
+
+        expect(customer.customerNumber).toBe('987654321');
+    });
 });
