@@ -1,6 +1,6 @@
 ---
 name: shopware-admin-js
-description: Apply Shopware Administration JS/TS/Vue coding rules. Use when editing Admin UI code (.js/.ts/.vue) under src/Administration, including Jest specs and ACL-backed components.
+description: Apply Shopware Administration JS/TS/Vue coding rules. Use when editing Admin UI code (.js/.ts/.vue) under src/Administration, including Jest specs and ACL-backed components. Typical requests: "fix this Vue component in the admin", "add a Jest test for this admin module", "add ACL privileges to the admin page". Not for PHP backend code, Storefront JS/Twig, or PHPUnit tests.
 license: MIT
 ---
 

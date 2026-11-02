@@ -1,0 +1,22 @@
+[mysqld]
+# no bin logs
+log_bin=OFF
+skip-log-bin
+disable-log-bin=1
+
+# to set SQL_SET_DEFAULT_SESSION_VARIABLES=0 in .env
+group_concat_max_len = 320000
+sql_mode="STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION"
+default-time-zone='+00:00'
+
+# use more threads to speed up imports
+innodb_write_io_threads = 16
+
+# not safe but faster for imports
+innodb_doublewrite = 0
+
+# increase log file size to speed up imports
+innodb_log_file_size = 100MB
+
+# 1 = slow no risk, 0 = fast but risky, 2 = balanced
+innodb_flush_log_at_trx_commit=0
